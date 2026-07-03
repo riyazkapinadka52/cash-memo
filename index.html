@@ -255,29 +255,35 @@
     const billNoInput = document.getElementById('billNoInput');
     const billNoDisplay = document.getElementById('billNo');
 
-    // keep the printed "No." in sync with whatever the user types
     billNoInput.addEventListener('input', () => {
-      // only allow digits, max 4
       billNoInput.value = billNoInput.value.replace(/\D/g, '').slice(0, 4);
       billNoDisplay.textContent = billNoInput.value || '----';
     });
     billNoDisplay.textContent = billNoInput.value;
 
     function downloadPDF() {
-      if (typeof html2pdf === 'undefined') {
-        alert('The PDF library could not load (no internet connection, or this preview is blocking it).\n\nPlease download this HTML file and open it directly in your browser (Chrome/Edge), then click Download PDF again.');
+      if (typeof html2pdf === 'undefined' || typeof html2canvas === 'undefined') {
+        alert('The PDF library could not load (no internet connection, or this preview is blocking it).\n\nPlease open this file directly in your browser and try again.');
         return;
       }
       const billNo = billNoInput.value || 'memo';
       const memo = document.querySelector('.memo');
-      const opt = {
-        margin: 0,
-        filename: `RajalakshmiServiceStation_${billNo}.pdf`,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 3, backgroundColor: '#fdfbf3' },
-        jsPDF: { unit: 'mm', format: 'a5', orientation: 'portrait' }
-      };
-      html2pdf().set(opt).from(memo).save().catch(err => {
+
+      html2canvas(memo, { scale: 3, backgroundColor: '#fdfbf3', useCORS: true }).then(canvas => {
+        const imgData = canvas.toDataURL('image/jpeg', 0.98);
+        const pxToMm = 25.4 / 96;
+        const widthMm = (canvas.width / 3) * pxToMm;
+        const heightMm = (canvas.height / 3) * pxToMm;
+
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF({
+          unit: 'mm',
+          format: [widthMm, heightMm],
+          orientation: widthMm > heightMm ? 'landscape' : 'portrait'
+        });
+        pdf.addImage(imgData, 'JPEG', 0, 0, widthMm, heightMm);
+        pdf.save(`RajalakshmiServiceStation_${billNo}.pdf`);
+      }).catch(err => {
         alert('PDF generation failed: ' + err.message + '\n\nTry opening this file directly in a browser tab instead of a preview window.');
       });
     }
